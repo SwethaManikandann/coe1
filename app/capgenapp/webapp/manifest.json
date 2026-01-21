@@ -17,7 +17,7 @@
         },
         "dataSources": {
             "mainService": {
-                "uri": "/odata/v4/joule-srv/",
+                "uri": "/odata/v4/asset/",
                 "type": "OData",
                 "settings": {
                     "annotations": [],
@@ -85,42 +85,42 @@
             "routes": [
                 {
                     "pattern": ":?query:",
-                    "name": "AssetMastersList",
-                    "target": "AssetMastersList"
+                    "name": "AssetMasterList",
+                    "target": "AssetMasterList"
                 },
                 {
-                    "pattern": "AssetMasters({key}):?query:",
-                    "name": "AssetMastersObjectPage",
-                    "target": "AssetMastersObjectPage"
+                    "pattern": "AssetMaster({key}):?query:",
+                    "name": "AssetMasterObjectPage",
+                    "target": "AssetMasterObjectPage"
                 }
             ],
             "targets": {
-                "AssetMastersList": {
+                "AssetMasterList": {
                     "type": "Component",
-                    "id": "AssetMastersList",
+                    "id": "AssetMasterList",
                     "name": "sap.fe.templates.ListReport",
                     "options": {
                         "settings": {
-                            "contextPath": "/AssetMasters",
+                            "contextPath": "/AssetMaster",
                             "variantManagement": "Page",
                             "initialLoad": "Enabled",
                             "navigation": {
-                                "AssetMasters": {
+                                "AssetMaster": {
                                     "detail": {
-                                        "route": "AssetMastersObjectPage"
+                                        "route": "AssetMasterObjectPage"
                                     }
                                 }
                             }
                         }
                     }
                 },
-                "AssetMastersObjectPage": {
+                "AssetMasterObjectPage": {
                     "type": "Component",
-                    "id": "AssetMastersObjectPage",
+                    "id": "AssetMasterObjectPage",
                     "name": "sap.fe.templates.ObjectPage",
                     "options": {
                         "settings": {
-                            "contextPath": "/AssetMasters"
+                            "contextPath": "/AssetMaster"
                         }
                     }
                 }
