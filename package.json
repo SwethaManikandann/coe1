@@ -1,24 +1,42 @@
 {
-  "name": "AssetManagement",
+  "name": "asset-accounting",
   "version": "1.0.0",
-  "description": "A simple CAP project.",
+  "description": "SAP FI-AA Asset Accounting (CAP + Fiori Elements)",
+  "repository": "<repository>",
+  "license": "UNLICENSED",
+  "private": true,
   "dependencies": {
-    "@sap/cds": "^9",
-    "express": "^4"
+    "@sap/cds": "^8",
+    "@sap/cds-hana": "^2",
+    "@sap/xssec": "^4",
+    "@sap/xsenv": "^5",
+    "express": "^4",
+    "passport": "^0"
   },
   "devDependencies": {
-    "@cap-js/sqlite": "^2",
-    "cds-plugin-ui5": "^0.13.0"
+    "@cap-js/sqlite": "^1",
+    "@sap/ux-specification": "^1.120.4",
+    "sqlite3": "^5.1.7"
   },
   "scripts": {
     "start": "cds-serve",
-    "watch-capgenapp": "cds watch --open capgenapp/index.html?sap-ui-xx-viewCache=false --livereload false"
+    "watch": "cds watch",
+    "build": "mbt build",
+    "deploy": "cf deploy mta_archives/asset-accounting_1.0.0.mtar"
   },
-  "private": true,
-  "workspaces": [
-    "app/*"
-  ],
-  "sapux": [
-    "app/capgenapp"
-  ]
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "hana"
+      },
+      "auth": {
+        "kind": "dummy"
+      }
+    },
+    "sql": {
+      "native_roots": [
+        "db"
+      ]
+    }
+  }
 }
