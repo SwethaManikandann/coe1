@@ -3,7 +3,7 @@ namespace sap.fiaa;
 using { managed, cuid, Currency } from '@sap/cds/common';
 
 entity AssetMaster : cuid, managed {
-    key AssetID : UUID; // Explicit key if needed, or just use cuid's ID. Let's use cuid's ID as the main key but user asked for AssetID. I'll alias or use ID.
+    // key AssetID : UUID; // Removed redundant key, using cuid's ID
     // User asked for AssetID (UUID, key). cuid gives `ID`.
     // I will use `ID` from cuid as the technical key. If a separate display ID is needed, I'll add `AssetNumber`.
     // However, the prompt says "AssetID (UUID, key)". I'll stick to `ID` from cuid and alias it if needed in UI, or just use `ID`.
