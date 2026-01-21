@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Accounting - Home</title>
+    <script id="sap-ui-bootstrap" src="https://sapui5.hana.ondemand.com/1.136.0/resources/sap-ui-core.js"
+        data-sap-ui-theme="sap_horizon" data-sap-ui-libs="sap.m" data-sap-ui-compatVersion="edge"
+        data-sap-ui-async="true" data-sap-ui-frameOptions="trusted" data-sap-ui-resourceroots='{}'></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: "72", "72full", Arial, Helvetica, sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0070f2 0%, #0040a0 100%);
+            color: white;
+            padding: 2rem 3rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 300;
+        }
+
+        .header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            color: #32363a;
+        }
+
+        .tiles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .tile {
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            padding: 2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .tile:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+            border-color: #0070f2;
+        }
+
+        .tile-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #0070f2;
+        }
+
+        .tile-title {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #32363a;
+        }
+
+        .tile-subtitle {
+            font-size: 0.875rem;
+            color: #6a6d70;
+            margin-bottom: 0.75rem;
+        }
+
+        .tile-info {
+            font-size: 0.75rem;
+            color: #89919a;
+        }
+
+        .process-group {
+            margin-bottom: 3rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Asset Accounting</h1>
+        <p>SAP S/4HANA Fixed Assets Management</p>
+    </div>
+
+    <div class="container">
+        <div class="process-group">
+            <h2 class="section-title">Core Processes</h2>
+            <div class="tiles-grid">
+                <a href="./capgenapp/webapp/index.html" class="tile">
+                    <div class="tile-icon">💰</div>
+                    <div class="tile-title">Manage Assets</div>
+                    <div class="tile-subtitle">Asset Master Data</div>
+                    <div class="tile-info">Create and maintain fixed assets</div>
+                </a>
+
+                <a href="./procurement/webapp/index.html" class="tile">
+                    <div class="tile-icon">🛒</div>
+                    <div class="tile-title">Procurement</div>
+                    <div class="tile-subtitle">Purchase Requisitions</div>
+                    <div class="tile-info">Manage asset procurement process</div>
+                </a>
+
+                <a href="./valuation/webapp/index.html" class="tile">
+                    <div class="tile-icon">📊</div>
+                    <div class="tile-title">Asset Valuation</div>
+                    <div class="tile-subtitle">Valuation Postings</div>
+                    <div class="tile-info">Post asset valuations and adjustments</div>
+                </a>
+
+                <a href="./retirement/webapp/index.html" class="tile">
+                    <div class="tile-icon">📉</div>
+                    <div class="tile-title">Asset Retirement</div>
+                    <div class="tile-subtitle">Scrap & Sale</div>
+                    <div class="tile-info">Retire and dispose of assets</div>
+                </a>
+
+                <a href="./depreciation-run/webapp/index.html" class="tile">
+                    <div class="tile-icon">📅</div>
+                    <div class="tile-title">Depreciation Run</div>
+                    <div class="tile-subtitle">Month-End Processing</div>
+                    <div class="tile-info">Execute periodic depreciation</div>
+                </a>
+            </div>
+        </div>
+
+        <div class="process-group">
+            <h2 class="section-title">Service Endpoints</h2>
+            <div class="tiles-grid">
+                <a href="/odata/v4/asset/$metadata" target="_blank" class="tile">
+                    <div class="tile-icon">🔗</div>
+                    <div class="tile-title">OData Service</div>
+                    <div class="tile-subtitle">AssetService</div>
+                    <div class="tile-info">View service metadata</div>
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
