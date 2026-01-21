@@ -1,0 +1,118 @@
+{
+    "_version": "1.49.0",
+    "sap.app": {
+        "id": "retirement",
+        "type": "application",
+        "i18n": "i18n/i18n.properties",
+        "title": "{{appTitle}}",
+        "description": "{{appDescription}}",
+        "applicationVersion": {
+            "version": "0.0.1"
+        },
+        "dataSources": {
+            "mainService": {
+                "uri": "/odata/v4/asset/",
+                "type": "OData",
+                "settings": {
+                    "annotations": [],
+                    "odataVersion": "4.0"
+                }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "flexEnabled": true,
+        "dependencies": {
+            "minUI5Version": "1.108.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.fe.templates": {}
+            }
+        },
+        "contentDensities": {
+            "compact": true,
+            "cozy": true
+        },
+        "models": {
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "retirement.i18n.i18n"
+                }
+            },
+            "": {
+                "dataSource": "mainService",
+                "preload": true,
+                "settings": {
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": true
+                }
+            }
+        },
+        "routing": {
+            "config": {
+                "routerClass": "sap.m.routing.Router",
+                "viewType": "XML",
+                "controlId": "appContent",
+                "controlAggregation": "pages",
+                "async": true
+            },
+            "routes": [
+                {
+                    "pattern": ":?query:",
+                    "name": "AssetRetirementList",
+                    "target": "AssetRetirementList"
+                },
+                {
+                    "pattern": "AssetRetirement({key}):?query:",
+                    "name": "AssetRetirementObjectPage",
+                    "target": "AssetRetirementObjectPage"
+                }
+            ],
+            "targets": {
+                "AssetRetirementList": {
+                    "type": "Component",
+                    "id": "AssetRetirementList",
+                    "name": "sap.fe.templates.ListReport",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/AssetRetirement",
+                            "variantManagement": "Page",
+                            "navigation": {
+                                "AssetRetirement": {
+                                    "detail": {
+                                        "route": "AssetRetirementObjectPage"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "AssetRetirementObjectPage": {
+                    "type": "Component",
+                    "id": "AssetRetirementObjectPage",
+                    "name": "sap.fe.templates.ObjectPage",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/AssetRetirement"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "sap.fiori": {
+        "registrationIds": [],
+        "archeType": "transactional"
+    }
+}

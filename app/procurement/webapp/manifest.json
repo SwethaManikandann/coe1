@@ -1,0 +1,118 @@
+{
+    "_version": "1.49.0",
+    "sap.app": {
+        "id": "procurement",
+        "type": "application",
+        "i18n": "i18n/i18n.properties",
+        "title": "{{appTitle}}",
+        "description": "{{appDescription}}",
+        "applicationVersion": {
+            "version": "0.0.1"
+        },
+        "dataSources": {
+            "mainService": {
+                "uri": "/odata/v4/asset/",
+                "type": "OData",
+                "settings": {
+                    "annotations": [],
+                    "odataVersion": "4.0"
+                }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "flexEnabled": true,
+        "dependencies": {
+            "minUI5Version": "1.108.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.fe.templates": {}
+            }
+        },
+        "contentDensities": {
+            "compact": true,
+            "cozy": true
+        },
+        "models": {
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "procurement.i18n.i18n"
+                }
+            },
+            "": {
+                "dataSource": "mainService",
+                "preload": true,
+                "settings": {
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": true
+                }
+            }
+        },
+        "routing": {
+            "config": {
+                "routerClass": "sap.m.routing.Router",
+                "viewType": "XML",
+                "controlId": "appContent",
+                "controlAggregation": "pages",
+                "async": true
+            },
+            "routes": [
+                {
+                    "pattern": ":?query:",
+                    "name": "PurchaseRequisitionList",
+                    "target": "PurchaseRequisitionList"
+                },
+                {
+                    "pattern": "PurchaseRequisition({key}):?query:",
+                    "name": "PurchaseRequisitionObjectPage",
+                    "target": "PurchaseRequisitionObjectPage"
+                }
+            ],
+            "targets": {
+                "PurchaseRequisitionList": {
+                    "type": "Component",
+                    "id": "PurchaseRequisitionList",
+                    "name": "sap.fe.templates.ListReport",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/PurchaseRequisition",
+                            "variantManagement": "Page",
+                            "navigation": {
+                                "PurchaseRequisition": {
+                                    "detail": {
+                                        "route": "PurchaseRequisitionObjectPage"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "PurchaseRequisitionObjectPage": {
+                    "type": "Component",
+                    "id": "PurchaseRequisitionObjectPage",
+                    "name": "sap.fe.templates.ObjectPage",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/PurchaseRequisition"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "sap.fiori": {
+        "registrationIds": [],
+        "archeType": "transactional"
+    }
+}

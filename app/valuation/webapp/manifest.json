@@ -1,0 +1,118 @@
+{
+    "_version": "1.49.0",
+    "sap.app": {
+        "id": "valuation",
+        "type": "application",
+        "i18n": "i18n/i18n.properties",
+        "title": "{{appTitle}}",
+        "description": "{{appDescription}}",
+        "applicationVersion": {
+            "version": "0.0.1"
+        },
+        "dataSources": {
+            "mainService": {
+                "uri": "/odata/v4/asset/",
+                "type": "OData",
+                "settings": {
+                    "annotations": [],
+                    "odataVersion": "4.0"
+                }
+            }
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "flexEnabled": true,
+        "dependencies": {
+            "minUI5Version": "1.108.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.fe.templates": {}
+            }
+        },
+        "contentDensities": {
+            "compact": true,
+            "cozy": true
+        },
+        "models": {
+            "i18n": {
+                "type": "sap.ui.model.resource.ResourceModel",
+                "settings": {
+                    "bundleName": "valuation.i18n.i18n"
+                }
+            },
+            "": {
+                "dataSource": "mainService",
+                "preload": true,
+                "settings": {
+                    "operationMode": "Server",
+                    "autoExpandSelect": true,
+                    "earlyRequests": true
+                }
+            }
+        },
+        "routing": {
+            "config": {
+                "routerClass": "sap.m.routing.Router",
+                "viewType": "XML",
+                "controlId": "appContent",
+                "controlAggregation": "pages",
+                "async": true
+            },
+            "routes": [
+                {
+                    "pattern": ":?query:",
+                    "name": "AssetValuationList",
+                    "target": "AssetValuationList"
+                },
+                {
+                    "pattern": "AssetValuation({key}):?query:",
+                    "name": "AssetValuationObjectPage",
+                    "target": "AssetValuationObjectPage"
+                }
+            ],
+            "targets": {
+                "AssetValuationList": {
+                    "type": "Component",
+                    "id": "AssetValuationList",
+                    "name": "sap.fe.templates.ListReport",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/AssetValuation",
+                            "variantManagement": "Page",
+                            "navigation": {
+                                "AssetValuation": {
+                                    "detail": {
+                                        "route": "AssetValuationObjectPage"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "AssetValuationObjectPage": {
+                    "type": "Component",
+                    "id": "AssetValuationObjectPage",
+                    "name": "sap.fe.templates.ObjectPage",
+                    "options": {
+                        "settings": {
+                            "contextPath": "/AssetValuation"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "sap.fiori": {
+        "registrationIds": [],
+        "archeType": "transactional"
+    }
+}
