@@ -143,11 +143,10 @@
             }
         };
     </script>
-    <script src="https://sapui5.hana.ondemand.com/1.136.0/resources/sap-ushell-config.js"></script>
+
     <script id="sap-ui-bootstrap" src="https://sapui5.hana.ondemand.com/1.136.0/resources/sap-ui-core.js"
         data-sap-ui-theme="sap_horizon" data-sap-ui-libs="sap.m, sap.ushell, sap.fe.templates"
-        data-sap-ui-compatVersion="edge" data-sap-ui-frameOptions="allow"
-        data-sap-ui-onInit="module:sap/ushell/services/Container" data-sap-ui-resourceroots='{
+        data-sap-ui-compatVersion="edge" data-sap-ui-frameOptions="allow" data-sap-ui-resourceroots='{
                 "capgenapp": "./capgenapp/webapp",
                 "procurement": "./procurement/webapp",
                 "retirement": "./retirement/webapp",
@@ -157,7 +156,9 @@
             </script>
     <script>
         sap.ui.getCore().attachInit(function () {
-            sap.ushell.Container.createRenderer().placeAt("content");
+            sap.ui.require(["sap/ushell/Container"], function (Container) {
+                sap.ushell.Container.createRenderer().placeAt("content");
+            });
         });
     </script>
 </head>
