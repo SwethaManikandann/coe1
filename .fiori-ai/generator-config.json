@@ -1,0 +1,31 @@
+{
+    "version": "0.2",
+    "floorplan": "FE_LROP",
+    "project": {
+        "name": "capgenapp",
+        "targetFolder": "/home/user/projects/AssetManagement",
+        "title": "AI generated App capgenapp",
+        "description": "AI generated App capgenapp",
+        "ui5Version": "1.136.0",
+        "localUI5Version": "1.82.2",
+        "sapux": true
+    },
+    "service": {
+        "servicePath": "/odata/v4/joule-srv/",
+        "capService": {
+            "projectPath": "/home/user/projects/AssetManagement",
+            "serviceName": "jouleSrv",
+            "serviceCdsPath": "srv/service"
+        }
+    },
+    "entityConfig": {
+        "mainEntity": {
+            "entityName": "AssetMasters"
+        }
+    },
+    "projectTemplateType": "LIST_REPORT_OBJECT_PAGE",
+    "telemetryData": {
+        "generationSourceName": "AI Headless",
+        "generationSourceVersion": "1.20.1"
+    }
+}

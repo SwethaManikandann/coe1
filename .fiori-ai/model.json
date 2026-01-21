@@ -1,0 +1,179 @@
+{
+    "namespace": "joule",
+    "entities": [
+        {
+            "name": "AssetMasters",
+            "label": "Asset Master",
+            "associations": [
+                {
+                    "name": "DepreciationValues",
+                    "target": "DepreciationValues",
+                    "multiplicity": "many",
+                    "backAssociation": "AssetMaster"
+                }
+            ],
+            "labelPlural": "Asset Masters",
+            "elements": [
+                {
+                    "name": "ID",
+                    "type": "UUID",
+                    "key": true,
+                    "label": ""
+                },
+                {
+                    "name": "AssetID",
+                    "type": "String",
+                    "label": "Asset ID",
+                    "additionalInfo": "Unique identifier for Asset Master records.",
+                    "essentialElement": true,
+                    "semanticKey": true
+                },
+                {
+                    "name": "CompanyCode",
+                    "type": "String(10)",
+                    "label": "Company Code",
+                    "additionalInfo": "Mandatory field representing the company code.",
+                    "essentialElement": true
+                },
+                {
+                    "name": "AssetClass",
+                    "type": "String(50)",
+                    "label": "Asset Class",
+                    "additionalInfo": "Classification of the asset.",
+                    "essentialElement": false
+                },
+                {
+                    "name": "Description",
+                    "type": "String(100)",
+                    "label": "Description",
+                    "additionalInfo": "Description of the asset.",
+                    "essentialElement": false
+                },
+                {
+                    "name": "CapitalizedOn",
+                    "type": "Date",
+                    "label": "Capitalized On",
+                    "additionalInfo": "Date when the asset was capitalized; nullable.",
+                    "essentialElement": false
+                }
+            ]
+        },
+        {
+            "name": "DepreciationValues",
+            "label": "Depreciation Value",
+            "associations": [
+                {
+                    "name": "AssetMaster",
+                    "target": "AssetMasters",
+                    "multiplicity": "one"
+                }
+            ],
+            "labelPlural": "Depreciation Values",
+            "elements": [
+                {
+                    "name": "ID",
+                    "type": "UUID",
+                    "key": true,
+                    "label": ""
+                },
+                {
+                    "name": "AssetID",
+                    "type": "String",
+                    "label": "Asset ID",
+                    "additionalInfo": "Association to AssetMasters entity.",
+                    "essentialElement": true
+                },
+                {
+                    "name": "DepreciationArea",
+                    "type": "String(50)",
+                    "label": "Depreciation Area",
+                    "additionalInfo": "Area of depreciation.",
+                    "essentialElement": false
+                },
+                {
+                    "name": "AcquisitionValue",
+                    "type": "Decimal",
+                    "label": "Acquisition Value",
+                    "additionalInfo": "Value at acquisition.",
+                    "essentialElement": false
+                },
+                {
+                    "name": "OrdinaryDepreciation",
+                    "type": "Decimal",
+                    "label": "Ordinary Depreciation",
+                    "additionalInfo": "Ordinary depreciation value.",
+                    "essentialElement": false
+                }
+            ]
+        }
+    ],
+    "service": {
+        "name": "jouleSrv",
+        "path": "srv/service.cds"
+    },
+    "applications": [
+        {
+            "pages": [
+                {
+                    "type": "ListReport",
+                    "entityType": "AssetMasters",
+                    "listReportContent": {
+                        "loadDataOnAppLaunch": "Enabled",
+                        "tables": [
+                            {
+                                "title": "Asset Master List",
+                                "id": "AssetMasterList",
+                                "baseEntityType": "AssetMasters",
+                                "columns": [
+                                    "AssetID",
+                                    "CompanyCode",
+                                    "AssetClass",
+                                    "Description",
+                                    "CapitalizedOn"
+                                ]
+                            }
+                        ],
+                        "filters": [
+                            "CompanyCode",
+                            "AssetClass",
+                            "CapitalizedOn"
+                        ]
+                    }
+                },
+                {
+                    "type": "ObjectPage",
+                    "entityType": "AssetMasters",
+                    "objectPageContent": {
+                        "tableSectionAssociations": [
+                            "DepreciationValues"
+                        ],
+                        "sections": [
+                            {
+                                "title": "Depreciation Values",
+                                "id": "depreciationValuesSection",
+                                "isTableSection": true,
+                                "fields": [
+                                    "DepreciationValues/AssetID",
+                                    "DepreciationValues/DepreciationArea",
+                                    "DepreciationValues/AcquisitionValue",
+                                    "DepreciationValues/OrdinaryDepreciation"
+                                ]
+                            }
+                        ],
+                        "tabs": [
+                            {
+                                "id": "depreciationDetailsTab",
+                                "title": "Depreciation Details",
+                                "subsections": [
+                                    "depreciationValuesSection"
+                                ]
+                            }
+                        ],
+                        "chartSections": []
+                    }
+                }
+            ],
+            "name": "capgenapp"
+        }
+    ]
+}

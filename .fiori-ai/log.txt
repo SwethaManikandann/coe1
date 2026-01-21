@@ -1,0 +1,2691 @@
+2026-01-21T07:32:21.090Z [info] Project generation uses model: "gpt-4o", version: "latest"
+2026-01-21T07:32:21.090Z [info] 1/8: Generate CAP model using LLM
+2026-01-21T07:32:25.963Z [info] 
+==========LLM call for step "extractAppSkeleton":==========
+You help the user building a Fiori Elements application described in the user input.
+
+A Fiori Elements application typically starts with a ListReport page showing the data of the base entity of the application in a table.
+Details of a specific table row are shown in the ObjectPage. This first ObjectPage is therefore based on the base entity of the application.
+An ObjectPage can contain one or more table sections based on to-many associations of its entity type.
+The details of a table section row can be shown in an another ObjectPage based on the associations target entity.
+
+Your task is to find the entities (with their to-many associations) as well as the ObjectPages (with the to-many associations they use in table sections) described in the user input below.
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "entities": {
+      "type": "array",
+      "description": "Define all entities and their to-many associations; entity properties will be determined later",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "UpperCamelCase, no spaces, plural, e.g. 'Orders'"
+          },
+          "label": {
+            "type": "string",
+            "description": "max two words, singular"
+          },
+          "associations": {
+            "type": "array",
+            "description": "Define to-many associations between entities",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "Points to existing entity, value is entities.name"
+                },
+                "nameForReverseAssociation": {
+                  "type": "string",
+                  "description": "Name of the reverse to-one association in the target entity; required if target entity is same as source entity"
+                },
+                "multiplicity": {
+                  "type": "string",
+                  "enum": [
+                    "many",
+                    "one"
+                  ],
+                  "description": "Cardinality of the association"
+                }
+              },
+              "required": [
+                "name",
+                "target",
+                "multiplicity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "labelPlural": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "associations",
+          "labelPlural"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "baseEntity": {
+      "type": "string",
+      "description": "base entity of ListReport page (if present) and first ObjectPage"
+    },
+    "noListReportPage": {
+      "type": "boolean",
+      "description": "true: no ListReport page will generated, e.g. for applications which start with an (input enabled) Object Page to enter data"
+    },
+    "objectPages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "description": "Entity that the ObjectPage is based on, the first ObjectPage is always based on base entity. There can at most be a single ObjectPage per entityType"
+          },
+          "tableSectionsAssociations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "to-many associations of page entity for table sections shown in the ObjectPage"
+          }
+        },
+        "required": [
+          "entityType"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "namespace": {
+      "type": "string",
+      "description": "lowerCamelCase, no spaces allowed"
+    },
+    "applicationName": {
+      "type": "string",
+      "description": "lowerCamelCase, no spaces allowed"
+    },
+    "userInputKind": {
+      "enum": [
+        "UserInterfaceFirst",
+        "DataModelFirst"
+      ],
+      "description": "use 'UserInterfaceFirst' if User input describes the app based on the user interface, i.e. how List Report and Object Pages should look like; use 'DataModelFirst' if User input describes the app based on its data model, i.e. its entities, their elements and associations"
+    }
+  },
+  "required": [
+    "entities",
+    "baseEntity",
+    "objectPages",
+    "namespace",
+    "applicationName",
+    "userInputKind"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+<UserInput>
+You are acting as a Senior SAP S/4HANA Asset Accounting (FI-AA) Solution Architect and SAP CAP (Node.js) Backend Developer.
+
+Your task is to design and implement an END-TO-END SAP FI-AA Asset Accounting application FROM SCRATCH using SAP CAP on SAP HANA Cloud with a metadata-driven Fiori Elements UI.
+
+==================================================== PROJECT PRINCIPLES (MANDATORY)
+Follow a STRICT WATERFALL MODEL
+Implement processes SEQUENTIALLY (Process 1 → Process 6)
+NEVER refactor, modify, or break earlier processes
+SAP Best Practices scope item: J62_SA
+Backend: SAP CAP (Node.js)
+Database: SAP HANA Cloud ONLY (no SQLite, no mocks)
+UI: Fiori Elements ONLY (no freestyle UI)
+Seed data must load automatically via CSV on deploy
+All logic must be realistic but simulated (no real FI/MM integration)
+==================================================== ARCHITECTURE
+CAP Project Structure: /db
+schema.cds
+data/*.csv /srv
+service.cds
+service.js /app
+Fiori Elements apps
+OData V4 services
+Clear associations for navigation
+Logical accounting document numbers
+==================================================== PROCESS 1 — ASSET MASTER CREATION
+Goal: Create Asset Master records.
+
+Data Model: AssetMaster
+
+AssetID (UUID, key)
+CompanyCode (mandatory)
+AssetClass
+Description
+CapitalizedOn (nullable)
+CostCenter
+UsefulLife
+StartDepreciationDate
+Status (Active | Blocked | Deleted)
+CreatedBy
+CreatedOn
+DepreciationValues
+
+ID (UUID, key)
+AssetID (association)
+DepreciationArea
+AcquisitionValue
+OrdinaryDepreciation
+NetBookValue
+Business Rules:
+
+CompanyCode mandatory
+Mandatory fields validated
+Delete blocked if capitalized or depreciation exists
+Block action only updates status
+UI:
+
+Home: “Asset Master Management”
+List Report + Object Page
+Tabs: Overview | Depreciation | History
+Actions: Create, Edit, Delete, Block
+==================================================== PROCESS 2 — ASSET ACQUISITION VIA PROCUREMENT (PR → PO → GR → INVOICE)
+Entities:
+
+PurchaseRequisition
+PurchaseOrder
+GoodsReceipt
+InvoiceReceipt
+AssetValue
+Rules:
+
+Asset must exist & be Active
+No skipping steps
+Capitalization occurs at Invoice Receipt
+Invoice amount validated vs PO
+Asset values updated automatically
+UI Flow: Asset → PR → PO → GR → IR
+
+==================================================== PROCESS 3 — ASSET RETIREMENT
+Scenarios:
+
+Retirement with Customer (SALE)
+Retirement without Customer
+Scrapping
+Entity: AssetRetirement
+
+Rules:
+
+Asset must be Active & capitalized
+Retirement date ≥ capitalization date
+Retirement amount ≤ Net Book Value
+Scrapped assets have zero proceeds
+Asset status becomes Retired or Scrapped
+Asset locked from future postings
+==================================================== PROCESS 4 — ASSET VALUATION
+Scenarios:
+
+Transfer within Company Code
+Post-Capitalization
+Write-Up
+Manual Depreciation
+Reversal
+Entities:
+
+AssetValuation
+AssetValueHistory
+Rules:
+
+Asset must be Active & capitalized
+Retired assets blocked
+Net Book Value never < 0
+Write-up limited to acquisition value
+==================================================== PROCESS 5 — MONTH-END CLOSING
+Entities:
+
+DepreciationRun
+DepreciationPosting
+MonthEndStatus
+Rules:
+
+Test run before productive run
+Retired assets excluded
+No postings in closed period
+Planned depreciation only
+NBV cannot go below zero
+UI:
+
+Depreciation Run cockpit
+Read-only reports:
+Asset Balances
+Asset Transactions
+Depreciation List
+==================================================== PROCESS 6 — YEAR-END CLOSING
+Rules:
+
+All months must be closed
+Final depreciation posted
+Year locked after close
+Carry forward balances
+==================================================== LEGACY ASSET MIGRATION
+Entities:
+
+LegacyAsset
+LegacyAssetValue
+LegacyMigrationControl
+Rules:
+
+Migration allowed only before completion
+Capitalization date must be historical
+Net Book Value = Acquisition – Accumulated Depreciation
+Legacy assets excluded from procurement
+Once migration completed → locked forever
+==================================================== SERVICE LAYER
+All validations in srv/service.js
+before CREATE / UPDATE hooks
+Logical accounting document numbers
+Audit fields everywhere
+Delete disabled after financial impact
+==================================================== UI REQUIREMENTS
+Separate Fiori apps or sections per process
+Crystal-clear navigation flow
+Status visible at every step
+Confirmation dialogs
+Success & error toasts
+Dropdown value helps
+==================================================== DELIVERABLES
+db/schema.cds (complete)
+srv/service.cds
+srv/service.js (all validations & logic)
+CSV seed data for all master tables
+Fiori Elements UI annotations
+Deployment configuration for HANA Cloud
+README with:
+Build steps
+Deploy steps
+Fiori preview URLs
+Test flow mapping to SAP transactions
+==================================================== FINAL INSTRUCTION
+Build EVERYTHING in ONE COHERENT OUTPUT
+Respect process order strictly
+Do not leave placeholders
+Assume this is a real enterprise implementation
+Output production-ready code and explanations
+BEGIN IMPLEMENTATION NOW.
+
+Joule
+cap-gen-app
+You have requested a complex task. These are the steps I propose for performing it. Please review them, if needed enhance the content, and then execute them sequentially.
+
+1. Generate CAP data model:
+
+Define 11 data entities: AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset. AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date. DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal. PurchaseRequisition have properties: ID in UUID and key, AssetID in association to AssetMaster, Description in string, Quantity in integer, UnitPrice in decimal. PurchaseOrder have properties: ID in UUID and key, RequisitionID in association to PurchaseRequisition, OrderDate in date, Supplier in string. GoodsReceipt have properties: ID in UUID and key, OrderID in association to PurchaseOrder, ReceiptDate in date, QuantityReceived in integer. InvoiceReceipt have properties: ID in UUID and key, ReceiptID in association to GoodsReceipt, InvoiceDate in date, Amount in decimal. AssetValue have properties: ID in UUID and key, AssetID in association to AssetMaster, ValueDate in date, Value in decimal. AssetRetirement have properties: ID in UUID and key, AssetID in association to AssetMaster, RetirementDate in date, RetirementType in string and enum (SALE | SCRAP), Amount in decimal. AssetValuation have properties: ID in UUID and key, AssetID in association to AssetMaster, ValuationDate in date, ValuationType in string and enum (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL), Amount in decimal. AssetValueHistory have properties: ID in UUID and key, AssetID in association to AssetMaster, HistoryDate in date, Value in decimal. LegacyAsset have properties: ID in UUID and key, AssetID in association to AssetMaster, MigrationDate in date, HistoricalValue in decimal.
+
+2. Generate CAP sample data:
+
+Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+
+3. Generate CAP application logic:
+
+Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.
+</UserInput>
+
+----------Response:----------
+```json
+{
+  "entities": [
+    {
+      "name": "AssetMasters",
+      "label": "Asset Master",
+      "associations": [
+        {
+          "name": "DepreciationValues",
+          "target": "DepreciationValues",
+          "multiplicity": "many"
+        }
+      ],
+      "labelPlural": "Asset Masters"
+    },
+    {
+      "name": "DepreciationValues",
+      "label": "Depreciation Value",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Depreciation Values"
+    },
+    {
+      "name": "PurchaseRequisitions",
+      "label": "Purchase Requisition",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Purchase Requisitions"
+    },
+    {
+      "name": "PurchaseOrders",
+      "label": "Purchase Order",
+      "associations": [
+        {
+          "name": "PurchaseRequisition",
+          "target": "PurchaseRequisitions",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Purchase Orders"
+    },
+    {
+      "name": "GoodsReceipts",
+      "label": "Goods Receipt",
+      "associations": [
+        {
+          "name": "PurchaseOrder",
+          "target": "PurchaseOrders",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Goods Receipts"
+    },
+    {
+      "name": "InvoiceReceipts",
+      "label": "Invoice Receipt",
+      "associations": [
+        {
+          "name": "GoodsReceipt",
+          "target": "GoodsReceipts",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Invoice Receipts"
+    },
+    {
+      "name": "AssetValues",
+      "label": "Asset Value",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Asset Values"
+    },
+    {
+      "name": "AssetRetirements",
+      "label": "Asset Retirement",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Asset Retirements"
+    },
+    {
+      "name": "AssetValuations",
+      "label": "Asset Valuation",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Asset Valuations"
+    },
+    {
+      "name": "AssetValueHistories",
+      "label": "Asset Value History",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Asset Value Histories"
+    },
+    {
+      "name": "LegacyAssets",
+      "label": "Legacy Asset",
+      "associations": [
+        {
+          "name": "AssetMaster",
+          "target": "AssetMasters",
+          "multiplicity": "one"
+        }
+      ],
+      "labelPlural": "Legacy Assets"
+    }
+  ],
+  "baseEntity": "AssetMasters",
+  "noListReportPage": false,
+  "objectPages": [
+    {
+      "entityType": "AssetMasters",
+      "tableSectionsAssociations": [
+        "DepreciationValues"
+      ]
+    },
+    {
+      "entityType": "PurchaseRequisitions",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "PurchaseOrders",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "GoodsReceipts",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "InvoiceReceipts",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "AssetValues",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "AssetRetirements",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "AssetValuations",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "AssetValueHistories",
+      "tableSectionsAssociations": []
+    },
+    {
+      "entityType": "LegacyAssets",
+      "tableSectionsAssociations": []
+    }
+  ],
+  "namespace": "joule",
+  "applicationName": "cap-gen-app",
+  "userInputKind": "DataModelFirst"
+}
+```
+2026-01-21T07:32:25.965Z [info] Step "switchBasedOnAppSkeleton": case 0 blocked! Evaluation details:
+ - JSONPath "$.model.applications[0].pages[0]" : [{"type":"ListReport","entityType":"AssetMasters"}]
+2026-01-21T07:32:25.966Z [info] Step "switchBasedOnAppSkeleton": case 1 blocked! Evaluation details:
+ - JSONPath "$.model.applications[0].pages[0].type" : ["ListReport"]
+2026-01-21T07:32:25.968Z [info] Step "switchBasedOnAppSkeleton": case 2 passed! Evaluation details:
+ - JSONPath "$.userInput.imageCount" : [0]
+2026-01-21T07:32:25.968Z [info] Step "runDataModelFirst": workflow "givenSkeletonExtractDataModelFirst" started
+"
+2026-01-21T07:32:36.606Z [info] 
+==========LLM call for step "extractEntitiesProperties":==========
+You help the user refining the DataModel for a Fiori Elements application described in the user input.
+
+The DataModel consists of the following entities and associations:
+- entity "AssetMasters" (with to-many associations to "DepreciationValues")
+- entity "DepreciationValues" (with to-one association to "AssetMasters")
+- entity "PurchaseRequisitions" (with to-one association to "AssetMasters")
+- entity "PurchaseOrders" (with to-one association to "PurchaseRequisitions")
+- entity "GoodsReceipts" (with to-one association to "PurchaseOrders")
+- entity "InvoiceReceipts" (with to-one association to "GoodsReceipts")
+- entity "AssetValues" (with to-one association to "AssetMasters")
+- entity "AssetRetirements" (with to-one association to "AssetMasters")
+- entity "AssetValuations" (with to-one association to "AssetMasters")
+- entity "AssetValueHistories" (with to-one association to "AssetMasters")
+- entity "LegacyAssets" (with to-one association to "AssetMasters")
+
+Your task is to find the properties for each entity.
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entityName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "camelCase, no spaces"
+          },
+          "type": {
+            "type": "string",
+            "description": "Allowed values: String(50), Boolean, Integer, Decimal, Double, Date, Time, DateTime, Timestamp; String length can vary - i.e. String(20)"
+          },
+          "key": {
+            "type": "boolean",
+            "description": "max. one optional key per entity, only if this element is a semantic key and can uniquely identify the instance"
+          },
+          "essentialElement": {
+            "type": "boolean",
+            "description": "'true' only if element is marked as essential'"
+          },
+          "additionalInfo": {
+            "type": "string",
+            "description": "All additional information from user input, e.g. user description, example values; also consider referenced parts in the user input"
+          }
+        },
+        "required": [
+          "entityName",
+          "name",
+          "type",
+          "additionalInfo"
+        ],
+        "additionalProperties": false
+      },
+      "description": "At least 5 realistic elements (unless explicitly specified)"
+    }
+  },
+  "required": [
+    "elements"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+<UserInput>
+You are acting as a Senior SAP S/4HANA Asset Accounting (FI-AA) Solution Architect and SAP CAP (Node.js) Backend Developer.
+
+Your task is to design and implement an END-TO-END SAP FI-AA Asset Accounting application FROM SCRATCH using SAP CAP on SAP HANA Cloud with a metadata-driven Fiori Elements UI.
+
+==================================================== PROJECT PRINCIPLES (MANDATORY)
+Follow a STRICT WATERFALL MODEL
+Implement processes SEQUENTIALLY (Process 1 → Process 6)
+NEVER refactor, modify, or break earlier processes
+SAP Best Practices scope item: J62_SA
+Backend: SAP CAP (Node.js)
+Database: SAP HANA Cloud ONLY (no SQLite, no mocks)
+UI: Fiori Elements ONLY (no freestyle UI)
+Seed data must load automatically via CSV on deploy
+All logic must be realistic but simulated (no real FI/MM integration)
+==================================================== ARCHITECTURE
+CAP Project Structure: /db
+schema.cds
+data/*.csv /srv
+service.cds
+service.js /app
+Fiori Elements apps
+OData V4 services
+Clear associations for navigation
+Logical accounting document numbers
+==================================================== PROCESS 1 — ASSET MASTER CREATION
+Goal: Create Asset Master records.
+
+Data Model: AssetMaster
+
+AssetID (UUID, key)
+CompanyCode (mandatory)
+AssetClass
+Description
+CapitalizedOn (nullable)
+CostCenter
+UsefulLife
+StartDepreciationDate
+Status (Active | Blocked | Deleted)
+CreatedBy
+CreatedOn
+DepreciationValues
+
+ID (UUID, key)
+AssetID (association)
+DepreciationArea
+AcquisitionValue
+OrdinaryDepreciation
+NetBookValue
+Business Rules:
+
+CompanyCode mandatory
+Mandatory fields validated
+Delete blocked if capitalized or depreciation exists
+Block action only updates status
+UI:
+
+Home: “Asset Master Management”
+List Report + Object Page
+Tabs: Overview | Depreciation | History
+Actions: Create, Edit, Delete, Block
+==================================================== PROCESS 2 — ASSET ACQUISITION VIA PROCUREMENT (PR → PO → GR → INVOICE)
+Entities:
+
+PurchaseRequisition
+PurchaseOrder
+GoodsReceipt
+InvoiceReceipt
+AssetValue
+Rules:
+
+Asset must exist & be Active
+No skipping steps
+Capitalization occurs at Invoice Receipt
+Invoice amount validated vs PO
+Asset values updated automatically
+UI Flow: Asset → PR → PO → GR → IR
+
+==================================================== PROCESS 3 — ASSET RETIREMENT
+Scenarios:
+
+Retirement with Customer (SALE)
+Retirement without Customer
+Scrapping
+Entity: AssetRetirement
+
+Rules:
+
+Asset must be Active & capitalized
+Retirement date ≥ capitalization date
+Retirement amount ≤ Net Book Value
+Scrapped assets have zero proceeds
+Asset status becomes Retired or Scrapped
+Asset locked from future postings
+==================================================== PROCESS 4 — ASSET VALUATION
+Scenarios:
+
+Transfer within Company Code
+Post-Capitalization
+Write-Up
+Manual Depreciation
+Reversal
+Entities:
+
+AssetValuation
+AssetValueHistory
+Rules:
+
+Asset must be Active & capitalized
+Retired assets blocked
+Net Book Value never < 0
+Write-up limited to acquisition value
+==================================================== PROCESS 5 — MONTH-END CLOSING
+Entities:
+
+DepreciationRun
+DepreciationPosting
+MonthEndStatus
+Rules:
+
+Test run before productive run
+Retired assets excluded
+No postings in closed period
+Planned depreciation only
+NBV cannot go below zero
+UI:
+
+Depreciation Run cockpit
+Read-only reports:
+Asset Balances
+Asset Transactions
+Depreciation List
+==================================================== PROCESS 6 — YEAR-END CLOSING
+Rules:
+
+All months must be closed
+Final depreciation posted
+Year locked after close
+Carry forward balances
+==================================================== LEGACY ASSET MIGRATION
+Entities:
+
+LegacyAsset
+LegacyAssetValue
+LegacyMigrationControl
+Rules:
+
+Migration allowed only before completion
+Capitalization date must be historical
+Net Book Value = Acquisition – Accumulated Depreciation
+Legacy assets excluded from procurement
+Once migration completed → locked forever
+==================================================== SERVICE LAYER
+All validations in srv/service.js
+before CREATE / UPDATE hooks
+Logical accounting document numbers
+Audit fields everywhere
+Delete disabled after financial impact
+==================================================== UI REQUIREMENTS
+Separate Fiori apps or sections per process
+Crystal-clear navigation flow
+Status visible at every step
+Confirmation dialogs
+Success & error toasts
+Dropdown value helps
+==================================================== DELIVERABLES
+db/schema.cds (complete)
+srv/service.cds
+srv/service.js (all validations & logic)
+CSV seed data for all master tables
+Fiori Elements UI annotations
+Deployment configuration for HANA Cloud
+README with:
+Build steps
+Deploy steps
+Fiori preview URLs
+Test flow mapping to SAP transactions
+==================================================== FINAL INSTRUCTION
+Build EVERYTHING in ONE COHERENT OUTPUT
+Respect process order strictly
+Do not leave placeholders
+Assume this is a real enterprise implementation
+Output production-ready code and explanations
+BEGIN IMPLEMENTATION NOW.
+
+Joule
+cap-gen-app
+You have requested a complex task. These are the steps I propose for performing it. Please review them, if needed enhance the content, and then execute them sequentially.
+
+1. Generate CAP data model:
+
+Define 11 data entities: AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset. AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date. DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal. PurchaseRequisition have properties: ID in UUID and key, AssetID in association to AssetMaster, Description in string, Quantity in integer, UnitPrice in decimal. PurchaseOrder have properties: ID in UUID and key, RequisitionID in association to PurchaseRequisition, OrderDate in date, Supplier in string. GoodsReceipt have properties: ID in UUID and key, OrderID in association to PurchaseOrder, ReceiptDate in date, QuantityReceived in integer. InvoiceReceipt have properties: ID in UUID and key, ReceiptID in association to GoodsReceipt, InvoiceDate in date, Amount in decimal. AssetValue have properties: ID in UUID and key, AssetID in association to AssetMaster, ValueDate in date, Value in decimal. AssetRetirement have properties: ID in UUID and key, AssetID in association to AssetMaster, RetirementDate in date, RetirementType in string and enum (SALE | SCRAP), Amount in decimal. AssetValuation have properties: ID in UUID and key, AssetID in association to AssetMaster, ValuationDate in date, ValuationType in string and enum (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL), Amount in decimal. AssetValueHistory have properties: ID in UUID and key, AssetID in association to AssetMaster, HistoryDate in date, Value in decimal. LegacyAsset have properties: ID in UUID and key, AssetID in association to AssetMaster, MigrationDate in date, HistoricalValue in decimal.
+
+2. Generate CAP sample data:
+
+Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+
+3. Generate CAP application logic:
+
+Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.
+</UserInput>
+
+----------Response:----------
+```json
+{
+  "elements": [
+    {
+      "entityName": "AssetMasters",
+      "name": "AssetID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Asset Master records."
+    },
+    {
+      "entityName": "AssetMasters",
+      "name": "CompanyCode",
+      "type": "String(10)",
+      "essentialElement": true,
+      "additionalInfo": "Mandatory field representing the company code."
+    },
+    {
+      "entityName": "AssetMasters",
+      "name": "AssetClass",
+      "type": "String(50)",
+      "essentialElement": false,
+      "additionalInfo": "Classification of the asset."
+    },
+    {
+      "entityName": "AssetMasters",
+      "name": "Description",
+      "type": "String(100)",
+      "essentialElement": false,
+      "additionalInfo": "Description of the asset."
+    },
+    {
+      "entityName": "AssetMasters",
+      "name": "CapitalizedOn",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date when the asset was capitalized; nullable."
+    },
+    {
+      "entityName": "DepreciationValues",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Depreciation Values records."
+    },
+    {
+      "entityName": "DepreciationValues",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "DepreciationValues",
+      "name": "DepreciationArea",
+      "type": "String(50)",
+      "essentialElement": false,
+      "additionalInfo": "Area of depreciation."
+    },
+    {
+      "entityName": "DepreciationValues",
+      "name": "AcquisitionValue",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Value at acquisition."
+    },
+    {
+      "entityName": "DepreciationValues",
+      "name": "OrdinaryDepreciation",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Ordinary depreciation value."
+    },
+    {
+      "entityName": "PurchaseRequisitions",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Purchase Requisition records."
+    },
+    {
+      "entityName": "PurchaseRequisitions",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "PurchaseRequisitions",
+      "name": "Description",
+      "type": "String(100)",
+      "essentialElement": false,
+      "additionalInfo": "Description of the purchase requisition."
+    },
+    {
+      "entityName": "PurchaseRequisitions",
+      "name": "Quantity",
+      "type": "Integer",
+      "essentialElement": false,
+      "additionalInfo": "Quantity requested."
+    },
+    {
+      "entityName": "PurchaseRequisitions",
+      "name": "UnitPrice",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Price per unit."
+    },
+    {
+      "entityName": "PurchaseOrders",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Purchase Order records."
+    },
+    {
+      "entityName": "PurchaseOrders",
+      "name": "RequisitionID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to PurchaseRequisitions entity."
+    },
+    {
+      "entityName": "PurchaseOrders",
+      "name": "OrderDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of the order."
+    },
+    {
+      "entityName": "PurchaseOrders",
+      "name": "Supplier",
+      "type": "String(50)",
+      "essentialElement": false,
+      "additionalInfo": "Supplier name."
+    },
+    {
+      "entityName": "GoodsReceipts",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Goods Receipt records."
+    },
+    {
+      "entityName": "GoodsReceipts",
+      "name": "OrderID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to PurchaseOrders entity."
+    },
+    {
+      "entityName": "GoodsReceipts",
+      "name": "ReceiptDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of receipt."
+    },
+    {
+      "entityName": "GoodsReceipts",
+      "name": "QuantityReceived",
+      "type": "Integer",
+      "essentialElement": false,
+      "additionalInfo": "Quantity received."
+    },
+    {
+      "entityName": "InvoiceReceipts",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Invoice Receipt records."
+    },
+    {
+      "entityName": "InvoiceReceipts",
+      "name": "ReceiptID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to GoodsReceipts entity."
+    },
+    {
+      "entityName": "InvoiceReceipts",
+      "name": "InvoiceDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of the invoice."
+    },
+    {
+      "entityName": "InvoiceReceipts",
+      "name": "Amount",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Invoice amount."
+    },
+    {
+      "entityName": "AssetValues",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Asset Value records."
+    },
+    {
+      "entityName": "AssetValues",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "AssetValues",
+      "name": "ValueDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of the asset value."
+    },
+    {
+      "entityName": "AssetValues",
+      "name": "Value",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Value of the asset."
+    },
+    {
+      "entityName": "AssetRetirements",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Asset Retirement records."
+    },
+    {
+      "entityName": "AssetRetirements",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "AssetRetirements",
+      "name": "RetirementDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of retirement."
+    },
+    {
+      "entityName": "AssetRetirements",
+      "name": "RetirementType",
+      "type": "String(20)",
+      "essentialElement": false,
+      "additionalInfo": "Type of retirement (SALE | SCRAP)."
+    },
+    {
+      "entityName": "AssetRetirements",
+      "name": "Amount",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Retirement amount."
+    },
+    {
+      "entityName": "AssetValuations",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Asset Valuation records."
+    },
+    {
+      "entityName": "AssetValuations",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "AssetValuations",
+      "name": "ValuationDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of valuation."
+    },
+    {
+      "entityName": "AssetValuations",
+      "name": "ValuationType",
+      "type": "String(50)",
+      "essentialElement": false,
+      "additionalInfo": "Type of valuation (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL)."
+    },
+    {
+      "entityName": "AssetValuations",
+      "name": "Amount",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Valuation amount."
+    },
+    {
+      "entityName": "AssetValueHistories",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Asset Value History records."
+    },
+    {
+      "entityName": "AssetValueHistories",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "AssetValueHistories",
+      "name": "HistoryDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of the value history."
+    },
+    {
+      "entityName": "AssetValueHistories",
+      "name": "Value",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Historical value of the asset."
+    },
+    {
+      "entityName": "LegacyAssets",
+      "name": "ID",
+      "type": "UUID",
+      "key": true,
+      "essentialElement": true,
+      "additionalInfo": "Unique identifier for Legacy Asset records."
+    },
+    {
+      "entityName": "LegacyAssets",
+      "name": "AssetID",
+      "type": "UUID",
+      "essentialElement": true,
+      "additionalInfo": "Association to AssetMasters entity."
+    },
+    {
+      "entityName": "LegacyAssets",
+      "name": "MigrationDate",
+      "type": "Date",
+      "essentialElement": false,
+      "additionalInfo": "Date of migration."
+    },
+    {
+      "entityName": "LegacyAssets",
+      "name": "HistoricalValue",
+      "type": "Decimal",
+      "essentialElement": false,
+      "additionalInfo": "Historical value of the legacy asset."
+    }
+  ]
+}
+```
+2026-01-21T07:32:42.428Z [info] 
+==========LLM call for step "extractPropertyDetails":==========
+Here is a list of property names, each with the property description that was extracted from previous user input:
+
+AssetMasters_AssetID: Unique identifier for Asset Master records.
+AssetMasters_CompanyCode: Mandatory field representing the company code.
+AssetMasters_AssetClass: Classification of the asset.
+AssetMasters_Description: Description of the asset.
+AssetMasters_CapitalizedOn: Date when the asset was capitalized; nullable.
+DepreciationValues_AssetID: Association to AssetMasters entity.
+DepreciationValues_DepreciationArea: Area of depreciation.
+DepreciationValues_AcquisitionValue: Value at acquisition.
+DepreciationValues_OrdinaryDepreciation: Ordinary depreciation value.
+PurchaseRequisitions_AssetID: Association to AssetMasters entity.
+PurchaseRequisitions_Description: Description of the purchase requisition.
+PurchaseRequisitions_Quantity: Quantity requested.
+PurchaseRequisitions_UnitPrice: Price per unit.
+PurchaseOrders_RequisitionID: Association to PurchaseRequisitions entity.
+PurchaseOrders_OrderDate: Date of the order.
+PurchaseOrders_Supplier: Supplier name.
+GoodsReceipts_OrderID: Association to PurchaseOrders entity.
+GoodsReceipts_ReceiptDate: Date of receipt.
+GoodsReceipts_QuantityReceived: Quantity received.
+InvoiceReceipts_ReceiptID: Association to GoodsReceipts entity.
+InvoiceReceipts_InvoiceDate: Date of the invoice.
+InvoiceReceipts_Amount: Invoice amount.
+AssetValues_AssetID: Association to AssetMasters entity.
+AssetValues_ValueDate: Date of the asset value.
+AssetValues_Value: Value of the asset.
+AssetRetirements_AssetID: Association to AssetMasters entity.
+AssetRetirements_RetirementDate: Date of retirement.
+AssetRetirements_RetirementType: Type of retirement (SALE | SCRAP).
+AssetRetirements_Amount: Retirement amount.
+AssetValuations_AssetID: Association to AssetMasters entity.
+AssetValuations_ValuationDate: Date of valuation.
+AssetValuations_ValuationType: Type of valuation (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL).
+AssetValuations_Amount: Valuation amount.
+AssetValueHistories_AssetID: Association to AssetMasters entity.
+AssetValueHistories_HistoryDate: Date of the value history.
+AssetValueHistories_Value: Historical value of the asset.
+LegacyAssets_AssetID: Association to AssetMasters entity.
+LegacyAssets_MigrationDate: Date of migration.
+LegacyAssets_HistoricalValue: Historical value of the legacy asset.
+
+For each property analyze the description with respect to what property values can be expected.
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "properties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "hasFixedValuesList": {
+            "type": "boolean",
+            "description": "Only limited list of values expected, e.g. property is representing e.g. a type, status, category, unit, organization"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Specific property values mentioned as part of the description. Those could be possible values or example values. Don't make up or invent any values"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "properties"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+----------Response:----------
+```json
+{
+  "properties": [
+    {
+      "name": "AssetMasters_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetMasters_CompanyCode",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetMasters_AssetClass",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetMasters_Description",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetMasters_CapitalizedOn",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "DepreciationValues_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "DepreciationValues_DepreciationArea",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "DepreciationValues_AcquisitionValue",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "DepreciationValues_OrdinaryDepreciation",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseRequisitions_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseRequisitions_Description",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseRequisitions_Quantity",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseRequisitions_UnitPrice",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseOrders_RequisitionID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseOrders_OrderDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "PurchaseOrders_Supplier",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "GoodsReceipts_OrderID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "GoodsReceipts_ReceiptDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "GoodsReceipts_QuantityReceived",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "InvoiceReceipts_ReceiptID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "InvoiceReceipts_InvoiceDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "InvoiceReceipts_Amount",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValues_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValues_ValueDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValues_Value",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetRetirements_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetRetirements_RetirementDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetRetirements_RetirementType",
+      "hasFixedValuesList": true,
+      "values": [
+        "SALE",
+        "SCRAP"
+      ]
+    },
+    {
+      "name": "AssetRetirements_Amount",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValuations_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValuations_ValuationDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValuations_ValuationType",
+      "hasFixedValuesList": true,
+      "values": [
+        "TRANSFER",
+        "POST_CAPITALIZATION",
+        "WRITE_UP",
+        "MANUAL_DEPRECIATION",
+        "REVERSAL"
+      ]
+    },
+    {
+      "name": "AssetValuations_Amount",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValueHistories_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValueHistories_HistoryDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "AssetValueHistories_Value",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "LegacyAssets_AssetID",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "LegacyAssets_MigrationDate",
+      "hasFixedValuesList": false,
+      "values": []
+    },
+    {
+      "name": "LegacyAssets_HistoricalValue",
+      "hasFixedValuesList": false,
+      "values": []
+    }
+  ]
+}
+```
+2026-01-21T07:32:42.429Z [info] Step "switchSimpleOrComplexApp": case 0 blocked! Evaluation details:
+ - JSONPath "$.model.applications[0].pages[2]" : []
+ - JSONPath "$.userInput.lineCount" : [212]
+2026-01-21T07:32:42.429Z [info] Step "switchSimpleOrComplexApp": no condition met - running default steps
+2026-01-21T07:32:42.429Z [info] Step "runFlowForComplexApp": workflow "givenSkeletonExtractComplexApp" started
+"
+2026-01-21T07:32:45.367Z [info] 
+==========LLM call for classifier:==========
+The user input below describes a Fiori Elements application with a ListReport page and multiple ObjectPages.
+ListReport page shows the data of the specific business object as a list or table. ObjectPage shows details of a specific business object instance.
+Your task is to classify the lines based on the same business object representation to the following categories, one line can refer only to a single category:
+ - LIST_REPORT_ASSETMASTERS: line describes the ListReport page for "AssetMasters"
+ - OBJECT_PAGE_ASSETMASTERS: line describes the ObjectPage for "AssetMasters" with a table of "DepreciationValues"
+ - NONE: line is not describing any ListReport page or ObjectPage
+
+Return your findings as csv file with columns "lineContent" and "category"!
+
+<UserInput>
+You are acting as a Senior SAP S/4HANA Asset Accounting (FI-AA) Solution Architect and SAP CAP (Node.js) Backend Developer.
+
+Your task is to design and implement an END-TO-END SAP FI-AA Asset Accounting application FROM SCRATCH using SAP CAP on SAP HANA Cloud with a metadata-driven Fiori Elements UI.
+
+==================================================== PROJECT PRINCIPLES (MANDATORY)
+Follow a STRICT WATERFALL MODEL
+Implement processes SEQUENTIALLY (Process 1 → Process 6)
+NEVER refactor, modify, or break earlier processes
+SAP Best Practices scope item: J62_SA
+Backend: SAP CAP (Node.js)
+Database: SAP HANA Cloud ONLY (no SQLite, no mocks)
+UI: Fiori Elements ONLY (no freestyle UI)
+Seed data must load automatically via CSV on deploy
+All logic must be realistic but simulated (no real FI/MM integration)
+==================================================== ARCHITECTURE
+CAP Project Structure: /db
+schema.cds
+data/*.csv /srv
+service.cds
+service.js /app
+Fiori Elements apps
+OData V4 services
+Clear associations for navigation
+Logical accounting document numbers
+==================================================== PROCESS 1 — ASSET MASTER CREATION
+Goal: Create Asset Master records.
+
+Data Model: AssetMaster
+
+AssetID (UUID, key)
+CompanyCode (mandatory)
+AssetClass
+Description
+CapitalizedOn (nullable)
+CostCenter
+UsefulLife
+StartDepreciationDate
+Status (Active | Blocked | Deleted)
+CreatedBy
+CreatedOn
+DepreciationValues
+
+ID (UUID, key)
+AssetID (association)
+DepreciationArea
+AcquisitionValue
+OrdinaryDepreciation
+NetBookValue
+Business Rules:
+
+CompanyCode mandatory
+Mandatory fields validated
+Delete blocked if capitalized or depreciation exists
+Block action only updates status
+UI:
+
+Home: “Asset Master Management”
+List Report + Object Page
+Tabs: Overview | Depreciation | History
+Actions: Create, Edit, Delete, Block
+==================================================== PROCESS 2 — ASSET ACQUISITION VIA PROCUREMENT (PR → PO → GR → INVOICE)
+Entities:
+
+PurchaseRequisition
+PurchaseOrder
+GoodsReceipt
+InvoiceReceipt
+AssetValue
+Rules:
+
+Asset must exist & be Active
+No skipping steps
+Capitalization occurs at Invoice Receipt
+Invoice amount validated vs PO
+Asset values updated automatically
+UI Flow: Asset → PR → PO → GR → IR
+
+==================================================== PROCESS 3 — ASSET RETIREMENT
+Scenarios:
+
+Retirement with Customer (SALE)
+Retirement without Customer
+Scrapping
+Entity: AssetRetirement
+
+Rules:
+
+Asset must be Active & capitalized
+Retirement date ≥ capitalization date
+Retirement amount ≤ Net Book Value
+Scrapped assets have zero proceeds
+Asset status becomes Retired or Scrapped
+Asset locked from future postings
+==================================================== PROCESS 4 — ASSET VALUATION
+Scenarios:
+
+Transfer within Company Code
+Post-Capitalization
+Write-Up
+Manual Depreciation
+Reversal
+Entities:
+
+AssetValuation
+AssetValueHistory
+Rules:
+
+Asset must be Active & capitalized
+Retired assets blocked
+Net Book Value never < 0
+Write-up limited to acquisition value
+==================================================== PROCESS 5 — MONTH-END CLOSING
+Entities:
+
+DepreciationRun
+DepreciationPosting
+MonthEndStatus
+Rules:
+
+Test run before productive run
+Retired assets excluded
+No postings in closed period
+Planned depreciation only
+NBV cannot go below zero
+UI:
+
+Depreciation Run cockpit
+Read-only reports:
+Asset Balances
+Asset Transactions
+Depreciation List
+==================================================== PROCESS 6 — YEAR-END CLOSING
+Rules:
+
+All months must be closed
+Final depreciation posted
+Year locked after close
+Carry forward balances
+==================================================== LEGACY ASSET MIGRATION
+Entities:
+
+LegacyAsset
+LegacyAssetValue
+LegacyMigrationControl
+Rules:
+
+Migration allowed only before completion
+Capitalization date must be historical
+Net Book Value = Acquisition – Accumulated Depreciation
+Legacy assets excluded from procurement
+Once migration completed → locked forever
+==================================================== SERVICE LAYER
+All validations in srv/service.js
+before CREATE / UPDATE hooks
+Logical accounting document numbers
+Audit fields everywhere
+Delete disabled after financial impact
+==================================================== UI REQUIREMENTS
+Separate Fiori apps or sections per process
+Crystal-clear navigation flow
+Status visible at every step
+Confirmation dialogs
+Success & error toasts
+Dropdown value helps
+==================================================== DELIVERABLES
+db/schema.cds (complete)
+srv/service.cds
+srv/service.js (all validations & logic)
+CSV seed data for all master tables
+Fiori Elements UI annotations
+Deployment configuration for HANA Cloud
+README with:
+Build steps
+Deploy steps
+Fiori preview URLs
+Test flow mapping to SAP transactions
+==================================================== FINAL INSTRUCTION
+Build EVERYTHING in ONE COHERENT OUTPUT
+Respect process order strictly
+Do not leave placeholders
+Assume this is a real enterprise implementation
+Output production-ready code and explanations
+BEGIN IMPLEMENTATION NOW.
+
+Joule
+cap-gen-app
+You have requested a complex task.
+These are the steps I propose for performing it.
+Please review them, if needed enhance the content, and then execute them sequentially.
+
+1. Generate CAP data model:
+
+Define 11 data entities: AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date.
+DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal.
+PurchaseRequisition have properties: ID in UUID and key, AssetID in association to AssetMaster, Description in string, Quantity in integer, UnitPrice in decimal.
+PurchaseOrder have properties: ID in UUID and key, RequisitionID in association to PurchaseRequisition, OrderDate in date, Supplier in string.
+GoodsReceipt have properties: ID in UUID and key, OrderID in association to PurchaseOrder, ReceiptDate in date, QuantityReceived in integer.
+InvoiceReceipt have properties: ID in UUID and key, ReceiptID in association to GoodsReceipt, InvoiceDate in date, Amount in decimal.
+AssetValue have properties: ID in UUID and key, AssetID in association to AssetMaster, ValueDate in date, Value in decimal.
+AssetRetirement have properties: ID in UUID and key, AssetID in association to AssetMaster, RetirementDate in date, RetirementType in string and enum (SALE | SCRAP), Amount in decimal.
+AssetValuation have properties: ID in UUID and key, AssetID in association to AssetMaster, ValuationDate in date, ValuationType in string and enum (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL), Amount in decimal.
+AssetValueHistory have properties: ID in UUID and key, AssetID in association to AssetMaster, HistoryDate in date, Value in decimal.
+LegacyAsset have properties: ID in UUID and key, AssetID in association to AssetMaster, MigrationDate in date, HistoricalValue in decimal.
+
+2. Generate CAP sample data:
+
+Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+
+3. Generate CAP application logic:
+
+Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.
+</UserInput>
+
+----------Response:----------
+To classify the lines based on the business object representation, we need to identify which lines describe the ListReport page for "AssetMasters" and which describe the ObjectPage for "AssetMasters" with a table of "DepreciationValues". Here's the classification:
+
+```csv
+lineContent,category
+"List Report + Object Page",LIST_REPORT_ASSETMASTERS
+"AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date.",LIST_REPORT_ASSETMASTERS
+"DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal.",OBJECT_PAGE_ASSETMASTERS
+"Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.",NONE
+"Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.",NONE
+```
+
+This CSV file categorizes each line based on whether it describes the ListReport page for "AssetMasters", the ObjectPage for "AssetMasters" with a table of "DepreciationValues", or neither.
+2026-01-21T07:32:45.368Z [info] Step "loopOverPages": looping over 2 entries
+"
+2026-01-21T07:32:45.368Z [info] Step "loopOverPages" index 0: pageType=ListReport, entityType=AssetMasters
+2026-01-21T07:32:45.368Z [info] Step "ifListReportPage": case 0 passed! Evaluation details:
+ - Variable "pageType" : "ListReport"
+2026-01-21T07:32:46.685Z [info] 
+==========LLM call for step "extractListReport":==========
+A Fiori Elements Application has the following pages:
+ - ListReport page for "AssetMasters"
+ - ObjectPage for "AssetMasters"
+
+Available entities with their associations and elements are:
+Entity "AssetMasters"
+   Properties:
+       AssetID: Unique identifier for Asset Master records.
+       CompanyCode: Mandatory field representing the company code.
+       AssetClass: Classification of the asset.
+       Description: Description of the asset.
+       CapitalizedOn: Date when the asset was capitalized; nullable.
+   Associations:
+       DepreciationValues: association to many entities DepreciationValues
+Entity "DepreciationValues"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       DepreciationArea: Area of depreciation.
+       AcquisitionValue: Value at acquisition.
+       OrdinaryDepreciation: Ordinary depreciation value.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "PurchaseRequisitions"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       Description: Description of the purchase requisition.
+       Quantity: Quantity requested.
+       UnitPrice: Price per unit.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "PurchaseOrders"
+   Properties:
+       RequisitionID: Association to PurchaseRequisitions entity.
+       OrderDate: Date of the order.
+       Supplier: Supplier name.
+   Associations:
+       PurchaseRequisition: association to single entity PurchaseRequisitions
+Entity "GoodsReceipts"
+   Properties:
+       OrderID: Association to PurchaseOrders entity.
+       ReceiptDate: Date of receipt.
+       QuantityReceived: Quantity received.
+   Associations:
+       PurchaseOrder: association to single entity PurchaseOrders
+Entity "InvoiceReceipts"
+   Properties:
+       ReceiptID: Association to GoodsReceipts entity.
+       InvoiceDate: Date of the invoice.
+       Amount: Invoice amount.
+   Associations:
+       GoodsReceipt: association to single entity GoodsReceipts
+Entity "AssetValues"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       ValueDate: Date of the asset value.
+       Value: Value of the asset.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "AssetRetirements"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       RetirementDate: Date of retirement.
+       RetirementType: Type of retirement (SALE | SCRAP).
+       Amount: Retirement amount.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "AssetValuations"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       ValuationDate: Date of valuation.
+       ValuationType: Type of valuation (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL).
+       Amount: Valuation amount.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "AssetValueHistories"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       HistoryDate: Date of the value history.
+       Value: Historical value of the asset.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+Entity "LegacyAssets"
+   Properties:
+       AssetID: Association to AssetMasters entity.
+       MigrationDate: Date of migration.
+       HistoricalValue: Historical value of the legacy asset.
+   Associations:
+       AssetMaster: association to single entity AssetMasters
+
+The user input below describes the details of the ListReport page (i.e. its filters, tables or views with their columns).
+
+Your task is to help the user defining the ListReport page.
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "loadDataOnAppLaunch": {
+      "type": "string",
+      "enum": [
+        "Auto",
+        "Disabled",
+        "Enabled"
+      ],
+      "description": "'Auto': no explicit user input to load the data after start or an explicit user input to set InitialLoad for table to Auto; 'Disabled': An initial load of data does not occur at app start and the user has to actively click the Go button;  'Enabled': An initial load of data occurs automatically after start  (list is visible without pressing the GO Button)."
+    },
+    "tables": {
+      "type": "array",
+      "description": "tables (views) expected in user input",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "baseEntityType": {
+            "type": "string",
+            "description": "base entity type for the table"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "propertyPaths for columns"
+          }
+        },
+        "required": [
+          "title",
+          "baseEntityType",
+          "columns"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "filters": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "propertyPaths for filters specified in user input. If not specified, empty array"
+    }
+  },
+  "required": [
+    "tables"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+<UserInput>
+You are acting as a Senior SAP S/4HANA Asset Accounting (FI-AA) Solution Architect and SAP CAP (Node.js) Backend Developer.
+
+Your task is to design and implement an END-TO-END SAP FI-AA Asset Accounting application FROM SCRATCH using SAP CAP on SAP HANA Cloud with a metadata-driven Fiori Elements UI.
+
+==================================================== PROJECT PRINCIPLES (MANDATORY)
+Follow a STRICT WATERFALL MODEL
+Implement processes SEQUENTIALLY (Process 1 → Process 6)
+NEVER refactor, modify, or break earlier processes
+SAP Best Practices scope item: J62_SA
+Backend: SAP CAP (Node.js)
+Database: SAP HANA Cloud ONLY (no SQLite, no mocks)
+UI: Fiori Elements ONLY (no freestyle UI)
+Seed data must load automatically via CSV on deploy
+All logic must be realistic but simulated (no real FI/MM integration)
+==================================================== ARCHITECTURE
+CAP Project Structure: /db
+schema.cds
+data/*.csv /srv
+service.cds
+service.js /app
+Fiori Elements apps
+OData V4 services
+Clear associations for navigation
+Logical accounting document numbers
+==================================================== PROCESS 1 — ASSET MASTER CREATION
+Goal: Create Asset Master records.
+
+Data Model: AssetMaster
+
+AssetID (UUID, key)
+CompanyCode (mandatory)
+AssetClass
+Description
+CapitalizedOn (nullable)
+CostCenter
+UsefulLife
+StartDepreciationDate
+Status (Active | Blocked | Deleted)
+CreatedBy
+CreatedOn
+DepreciationValues
+
+ID (UUID, key)
+AssetID (association)
+DepreciationArea
+AcquisitionValue
+OrdinaryDepreciation
+NetBookValue
+Business Rules:
+
+CompanyCode mandatory
+Mandatory fields validated
+Delete blocked if capitalized or depreciation exists
+Block action only updates status
+UI:
+
+Home: “Asset Master Management”
+List Report + Object Page
+Tabs: Overview | Depreciation | History
+Actions: Create, Edit, Delete, Block
+==================================================== PROCESS 2 — ASSET ACQUISITION VIA PROCUREMENT (PR → PO → GR → INVOICE)
+Entities:
+
+PurchaseRequisition
+PurchaseOrder
+GoodsReceipt
+InvoiceReceipt
+AssetValue
+Rules:
+
+Asset must exist & be Active
+No skipping steps
+Capitalization occurs at Invoice Receipt
+Invoice amount validated vs PO
+Asset values updated automatically
+UI Flow: Asset → PR → PO → GR → IR
+
+==================================================== PROCESS 3 — ASSET RETIREMENT
+Scenarios:
+
+Retirement with Customer (SALE)
+Retirement without Customer
+Scrapping
+Entity: AssetRetirement
+
+Rules:
+
+Asset must be Active & capitalized
+Retirement date ≥ capitalization date
+Retirement amount ≤ Net Book Value
+Scrapped assets have zero proceeds
+Asset status becomes Retired or Scrapped
+Asset locked from future postings
+==================================================== PROCESS 4 — ASSET VALUATION
+Scenarios:
+
+Transfer within Company Code
+Post-Capitalization
+Write-Up
+Manual Depreciation
+Reversal
+Entities:
+
+AssetValuation
+AssetValueHistory
+Rules:
+
+Asset must be Active & capitalized
+Retired assets blocked
+Net Book Value never < 0
+Write-up limited to acquisition value
+==================================================== PROCESS 5 — MONTH-END CLOSING
+Entities:
+
+DepreciationRun
+DepreciationPosting
+MonthEndStatus
+Rules:
+
+Test run before productive run
+Retired assets excluded
+No postings in closed period
+Planned depreciation only
+NBV cannot go below zero
+UI:
+
+Depreciation Run cockpit
+Read-only reports:
+Asset Balances
+Asset Transactions
+Depreciation List
+==================================================== PROCESS 6 — YEAR-END CLOSING
+Rules:
+
+All months must be closed
+Final depreciation posted
+Year locked after close
+Carry forward balances
+==================================================== LEGACY ASSET MIGRATION
+Entities:
+
+LegacyAsset
+LegacyAssetValue
+LegacyMigrationControl
+Rules:
+
+Migration allowed only before completion
+Capitalization date must be historical
+Net Book Value = Acquisition – Accumulated Depreciation
+Legacy assets excluded from procurement
+Once migration completed → locked forever
+==================================================== SERVICE LAYER
+All validations in srv/service.js
+before CREATE / UPDATE hooks
+Logical accounting document numbers
+Audit fields everywhere
+Delete disabled after financial impact
+==================================================== UI REQUIREMENTS
+Separate Fiori apps or sections per process
+Crystal-clear navigation flow
+Status visible at every step
+Confirmation dialogs
+Success & error toasts
+Dropdown value helps
+==================================================== DELIVERABLES
+db/schema.cds (complete)
+srv/service.cds
+srv/service.js (all validations & logic)
+CSV seed data for all master tables
+Fiori Elements UI annotations
+Deployment configuration for HANA Cloud
+README with:
+Build steps
+Deploy steps
+Fiori preview URLs
+Test flow mapping to SAP transactions
+==================================================== FINAL INSTRUCTION
+Build EVERYTHING in ONE COHERENT OUTPUT
+Respect process order strictly
+Do not leave placeholders
+Assume this is a real enterprise implementation
+Output production-ready code and explanations
+BEGIN IMPLEMENTATION NOW.
+
+Joule
+cap-gen-app
+You have requested a complex task.
+These are the steps I propose for performing it.
+Please review them, if needed enhance the content, and then execute them sequentially.
+
+1. Generate CAP data model:
+
+Define 11 data entities: AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date.
+DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal.
+PurchaseRequisition have properties: ID in UUID and key, AssetID in association to AssetMaster, Description in string, Quantity in integer, UnitPrice in decimal.
+PurchaseOrder have properties: ID in UUID and key, RequisitionID in association to PurchaseRequisition, OrderDate in date, Supplier in string.
+GoodsReceipt have properties: ID in UUID and key, OrderID in association to PurchaseOrder, ReceiptDate in date, QuantityReceived in integer.
+InvoiceReceipt have properties: ID in UUID and key, ReceiptID in association to GoodsReceipt, InvoiceDate in date, Amount in decimal.
+AssetValue have properties: ID in UUID and key, AssetID in association to AssetMaster, ValueDate in date, Value in decimal.
+AssetRetirement have properties: ID in UUID and key, AssetID in association to AssetMaster, RetirementDate in date, RetirementType in string and enum (SALE | SCRAP), Amount in decimal.
+AssetValuation have properties: ID in UUID and key, AssetID in association to AssetMaster, ValuationDate in date, ValuationType in string and enum (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL), Amount in decimal.
+AssetValueHistory have properties: ID in UUID and key, AssetID in association to AssetMaster, HistoryDate in date, Value in decimal.
+LegacyAsset have properties: ID in UUID and key, AssetID in association to AssetMaster, MigrationDate in date, HistoricalValue in decimal.
+
+2. Generate CAP sample data:
+
+Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+
+3. Generate CAP application logic:
+
+Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.
+</UserInput>
+
+----------Response:----------
+```json
+{
+  "loadDataOnAppLaunch": "Enabled",
+  "tables": [
+    {
+      "title": "Asset Master List",
+      "id": "AssetMasterList",
+      "baseEntityType": "AssetMasters",
+      "columns": [
+        "AssetID",
+        "CompanyCode",
+        "AssetClass",
+        "Description",
+        "CapitalizedOn"
+      ]
+    }
+  ],
+  "filters": [
+    "CompanyCode",
+    "AssetClass",
+    "CapitalizedOn"
+  ]
+}
+```
+2026-01-21T07:32:46.686Z [info] Step "loopOverPages" index 1: pageType=ObjectPage, entityType=AssetMasters
+2026-01-21T07:32:46.686Z [info] Step "ifListReportPage": case 0 blocked! Evaluation details:
+ - Variable "pageType" : "ObjectPage"
+2026-01-21T07:32:46.686Z [info] Step "ifListReportPage": no condition met - running default steps
+2026-01-21T07:32:48.115Z [info] 
+==========LLM call for step "extractSingleObjectPageOfMany":==========
+The user input below describes a Fiori Elements Application with the following pages:
+ - ListReport page for "AssetMasters"
+ - ObjectPage for "AssetMasters"
+
+Your task is to find the details of the ObjectPage for "AssetMasters".
+The base entity of the ObjectPage is AssetMasters.
+This ObjectPage can contain tabs and/or sections which in turn contain tables and fields.
+It must contain table sections containing data for associated entity "DepreciationValues" (via association DepreciationValues);
+
+The underlying data model allows the following propertyPaths:
+ - AssetID: Asset ID (of Asset Master)
+ - CompanyCode: Company Code (of Asset Master)
+ - AssetClass: Asset Class (of Asset Master)
+ - Description: Description (of Asset Master)
+ - CapitalizedOn: Capitalized On (of Asset Master)
+ - DepreciationValues/AssetID: Asset ID (of many associated Depreciation Value)
+ - DepreciationValues/DepreciationArea: Depreciation Area (of many associated Depreciation Value)
+ - DepreciationValues/AcquisitionValue: Acquisition Value (of many associated Depreciation Value)
+ - DepreciationValues/OrdinaryDepreciation: Ordinary Depreciation (of many associated Depreciation Value)
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "isTableSection": {
+            "type": "boolean",
+            "description": "if true, 'fields' represent columns of the table section and propertyPaths need to start with 1:n association"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "propertyPath"
+          }
+        },
+        "required": [
+          "title",
+          "id",
+          "fields"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "subsections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "list of sections ids relevant for the tab"
+          }
+        },
+        "required": [
+          "title",
+          "id",
+          "subsections"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "sections",
+    "tabs"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+<UserInput>
+"DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal."
+"Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset."
+"Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration."
+</UserInput>
+
+----------Response:----------
+```json
+{
+  "sections": [
+    {
+      "title": "Depreciation Values",
+      "id": "depreciationValuesSection",
+      "isTableSection": true,
+      "fields": [
+        "DepreciationValues/AssetID",
+        "DepreciationValues/DepreciationArea",
+        "DepreciationValues/AcquisitionValue",
+        "DepreciationValues/OrdinaryDepreciation"
+      ]
+    }
+  ],
+  "tabs": [
+    {
+      "title": "Depreciation Details",
+      "id": "depreciationDetailsTab",
+      "subsections": [
+        "depreciationValuesSection"
+      ]
+    }
+  ]
+}
+```
+2026-01-21T07:32:48.116Z [info] Step "ifCodeListsPresent": case 0 passed! Evaluation details:
+ - JSONPath "$.model.entities[*].elements[*].values[*]" : ["SALE","SCRAP","TRANSFER","POST_CAPITALIZATION","WRITE_UP","MANUAL_DEPRECIATION","REVERSAL"]
+2026-01-21T07:32:50.508Z [info] 
+==========LLM call for step "extractColors":==========
+You help the user creating a Fiori Elements application based on user input describing such an application.
+Your task is to determine whether the entity properties can be considered good and bad in most contexts or are usually neutral. When in doubt, set to neutral.
+
+These are the entity properties and their values:
+Entity: AssetRetirements, Property: RetirementType, Values: SALE, SCRAP
+Entity: AssetValuations, Property: ValuationType, Values: TRANSFER, POST_CAPITALIZATION, WRITE_UP, MANUAL_DEPRECIATION, REVERSAL
+
+If the properties can be considered good and bad, the allowed values for their criticality and the associated colors are:
+   negative: red
+   critical: yellow or orange
+   positive: green
+   neutral:  grey
+
+You must format your output as a JSON value that adheres to a given "JSON Schema" instance.
+
+"JSON Schema" is a declarative language that allows you to annotate and validate JSON documents.
+
+For example, the example "JSON Schema" instance {{"properties": {{"foo": {{"description": "a list of test words", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+would match an object with one required property, "foo". The "type" property specifies "foo" must be an "array", and the "description" property semantically describes it as "a list of test words". The items within "foo" must be strings.
+Thus, the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of this example "JSON Schema". The object {{"properties": {{"foo": ["bar", "baz"]}}}} is not well-formatted.
+
+Your output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!
+
+Here is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:
+```json
+{
+  "type": "object",
+  "properties": {
+    "properties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string"
+          },
+          "property": {
+            "type": "string"
+          },
+          "hasColorsOrCriticality": {
+            "type": "boolean",
+            "description": "true if the given values of the property can be good or bad, false if they are usually neutral"
+          },
+          "reason": {
+            "type": "string",
+            "description": "detailed explanation why you set hasColorsOrCriticality to this value"
+          },
+          "mapping": {
+            "type": "array",
+            "description": "empty if 'hasColorsOrCriticality' is false",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "description": "value of property"
+                },
+                "colorOrCriticality": {
+                  "type": "string",
+                  "description": "color or criticality associated with value"
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "detailed explanation why you set ColorOrCriticality to this value"
+                }
+              },
+              "required": [
+                "value",
+                "colorOrCriticality"
+              ]
+            }
+          }
+        },
+        "required": [
+          "entity",
+          "property"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "properties"
+  ],
+  "additionalProperties": false
+}
+```
+
+Output ONLY the json contents and try to be as accurate as comprehensive as possible.
+
+<UserInput>
+You are acting as a Senior SAP S/4HANA Asset Accounting (FI-AA) Solution Architect and SAP CAP (Node.js) Backend Developer.
+
+Your task is to design and implement an END-TO-END SAP FI-AA Asset Accounting application FROM SCRATCH using SAP CAP on SAP HANA Cloud with a metadata-driven Fiori Elements UI.
+
+==================================================== PROJECT PRINCIPLES (MANDATORY)
+Follow a STRICT WATERFALL MODEL
+Implement processes SEQUENTIALLY (Process 1 → Process 6)
+NEVER refactor, modify, or break earlier processes
+SAP Best Practices scope item: J62_SA
+Backend: SAP CAP (Node.js)
+Database: SAP HANA Cloud ONLY (no SQLite, no mocks)
+UI: Fiori Elements ONLY (no freestyle UI)
+Seed data must load automatically via CSV on deploy
+All logic must be realistic but simulated (no real FI/MM integration)
+==================================================== ARCHITECTURE
+CAP Project Structure: /db
+schema.cds
+data/*.csv /srv
+service.cds
+service.js /app
+Fiori Elements apps
+OData V4 services
+Clear associations for navigation
+Logical accounting document numbers
+==================================================== PROCESS 1 — ASSET MASTER CREATION
+Goal: Create Asset Master records.
+
+Data Model: AssetMaster
+
+AssetID (UUID, key)
+CompanyCode (mandatory)
+AssetClass
+Description
+CapitalizedOn (nullable)
+CostCenter
+UsefulLife
+StartDepreciationDate
+Status (Active | Blocked | Deleted)
+CreatedBy
+CreatedOn
+DepreciationValues
+
+ID (UUID, key)
+AssetID (association)
+DepreciationArea
+AcquisitionValue
+OrdinaryDepreciation
+NetBookValue
+Business Rules:
+
+CompanyCode mandatory
+Mandatory fields validated
+Delete blocked if capitalized or depreciation exists
+Block action only updates status
+UI:
+
+Home: “Asset Master Management”
+List Report + Object Page
+Tabs: Overview | Depreciation | History
+Actions: Create, Edit, Delete, Block
+==================================================== PROCESS 2 — ASSET ACQUISITION VIA PROCUREMENT (PR → PO → GR → INVOICE)
+Entities:
+
+PurchaseRequisition
+PurchaseOrder
+GoodsReceipt
+InvoiceReceipt
+AssetValue
+Rules:
+
+Asset must exist & be Active
+No skipping steps
+Capitalization occurs at Invoice Receipt
+Invoice amount validated vs PO
+Asset values updated automatically
+UI Flow: Asset → PR → PO → GR → IR
+
+==================================================== PROCESS 3 — ASSET RETIREMENT
+Scenarios:
+
+Retirement with Customer (SALE)
+Retirement without Customer
+Scrapping
+Entity: AssetRetirement
+
+Rules:
+
+Asset must be Active & capitalized
+Retirement date ≥ capitalization date
+Retirement amount ≤ Net Book Value
+Scrapped assets have zero proceeds
+Asset status becomes Retired or Scrapped
+Asset locked from future postings
+==================================================== PROCESS 4 — ASSET VALUATION
+Scenarios:
+
+Transfer within Company Code
+Post-Capitalization
+Write-Up
+Manual Depreciation
+Reversal
+Entities:
+
+AssetValuation
+AssetValueHistory
+Rules:
+
+Asset must be Active & capitalized
+Retired assets blocked
+Net Book Value never < 0
+Write-up limited to acquisition value
+==================================================== PROCESS 5 — MONTH-END CLOSING
+Entities:
+
+DepreciationRun
+DepreciationPosting
+MonthEndStatus
+Rules:
+
+Test run before productive run
+Retired assets excluded
+No postings in closed period
+Planned depreciation only
+NBV cannot go below zero
+UI:
+
+Depreciation Run cockpit
+Read-only reports:
+Asset Balances
+Asset Transactions
+Depreciation List
+==================================================== PROCESS 6 — YEAR-END CLOSING
+Rules:
+
+All months must be closed
+Final depreciation posted
+Year locked after close
+Carry forward balances
+==================================================== LEGACY ASSET MIGRATION
+Entities:
+
+LegacyAsset
+LegacyAssetValue
+LegacyMigrationControl
+Rules:
+
+Migration allowed only before completion
+Capitalization date must be historical
+Net Book Value = Acquisition – Accumulated Depreciation
+Legacy assets excluded from procurement
+Once migration completed → locked forever
+==================================================== SERVICE LAYER
+All validations in srv/service.js
+before CREATE / UPDATE hooks
+Logical accounting document numbers
+Audit fields everywhere
+Delete disabled after financial impact
+==================================================== UI REQUIREMENTS
+Separate Fiori apps or sections per process
+Crystal-clear navigation flow
+Status visible at every step
+Confirmation dialogs
+Success & error toasts
+Dropdown value helps
+==================================================== DELIVERABLES
+db/schema.cds (complete)
+srv/service.cds
+srv/service.js (all validations & logic)
+CSV seed data for all master tables
+Fiori Elements UI annotations
+Deployment configuration for HANA Cloud
+README with:
+Build steps
+Deploy steps
+Fiori preview URLs
+Test flow mapping to SAP transactions
+==================================================== FINAL INSTRUCTION
+Build EVERYTHING in ONE COHERENT OUTPUT
+Respect process order strictly
+Do not leave placeholders
+Assume this is a real enterprise implementation
+Output production-ready code and explanations
+BEGIN IMPLEMENTATION NOW.
+
+Joule
+cap-gen-app
+You have requested a complex task. These are the steps I propose for performing it. Please review them, if needed enhance the content, and then execute them sequentially.
+
+1. Generate CAP data model:
+
+Define 11 data entities: AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset. AssetMaster have properties: AssetID in UUID and key, CompanyCode in string and mandatory, AssetClass in string, Description in string, CapitalizedOn in date and nullable, CostCenter in string, UsefulLife in integer, StartDepreciationDate in date, Status in string and enum (Active | Blocked | Deleted), CreatedBy in string, CreatedOn in date. DepreciationValues have properties: ID in UUID and key, AssetID in association to AssetMaster, DepreciationArea in string, AcquisitionValue in decimal, OrdinaryDepreciation in decimal, NetBookValue in decimal. PurchaseRequisition have properties: ID in UUID and key, AssetID in association to AssetMaster, Description in string, Quantity in integer, UnitPrice in decimal. PurchaseOrder have properties: ID in UUID and key, RequisitionID in association to PurchaseRequisition, OrderDate in date, Supplier in string. GoodsReceipt have properties: ID in UUID and key, OrderID in association to PurchaseOrder, ReceiptDate in date, QuantityReceived in integer. InvoiceReceipt have properties: ID in UUID and key, ReceiptID in association to GoodsReceipt, InvoiceDate in date, Amount in decimal. AssetValue have properties: ID in UUID and key, AssetID in association to AssetMaster, ValueDate in date, Value in decimal. AssetRetirement have properties: ID in UUID and key, AssetID in association to AssetMaster, RetirementDate in date, RetirementType in string and enum (SALE | SCRAP), Amount in decimal. AssetValuation have properties: ID in UUID and key, AssetID in association to AssetMaster, ValuationDate in date, ValuationType in string and enum (TRANSFER | POST_CAPITALIZATION | WRITE_UP | MANUAL_DEPRECIATION | REVERSAL), Amount in decimal. AssetValueHistory have properties: ID in UUID and key, AssetID in association to AssetMaster, HistoryDate in date, Value in decimal. LegacyAsset have properties: ID in UUID and key, AssetID in association to AssetMaster, MigrationDate in date, HistoricalValue in decimal.
+
+2. Generate CAP sample data:
+
+Generate sample data per requirement: Seed data must load automatically via CSV on deploy for AssetMaster, DepreciationValues, PurchaseRequisition, PurchaseOrder, GoodsReceipt, InvoiceReceipt, AssetValue, AssetRetirement, AssetValuation, AssetValueHistory, LegacyAsset.
+
+3. Generate CAP application logic:
+
+Implement logic to validate mandatory fields, block delete if capitalized or depreciation exists, update asset status to blocked, ensure no skipping steps in procurement, validate invoice amount vs PO, update asset values automatically, ensure retirement date ≥ capitalization date, ensure retirement amount ≤ Net Book Value, block retired assets from future postings, ensure Net Book Value never < 0, limit write-up to acquisition value, exclude retired assets from month-end closing, ensure no postings in closed period, ensure all months closed before year-end closing, lock year after close, carry forward balances, allow legacy asset migration only before completion, ensure capitalization date is historical, calculate Net Book Value as Acquisition – Accumulated Depreciation, exclude legacy assets from procurement, lock legacy assets forever after migration.
+</UserInput>
+
+
+----------Response:----------
+```json
+{
+  "properties": [
+    {
+      "entity": "AssetRetirements",
+      "property": "RetirementType",
+      "hasColorsOrCriticality": true,
+      "reason": "Retirement types can be considered good or bad based on the context. SALE is generally positive as it indicates a successful transaction, while SCRAP is negative as it implies loss or disposal without financial gain.",
+      "mapping": [
+        {
+          "value": "SALE",
+          "colorOrCriticality": "positive",
+          "reason": "SALE is considered positive because it involves selling the asset, which typically results in financial gain."
+        },
+        {
+          "value": "SCRAP",
+          "colorOrCriticality": "negative",
+          "reason": "SCRAP is considered negative because it involves disposing of the asset without financial gain, often due to obsolescence or damage."
+        }
+      ]
+    },
+    {
+      "entity": "AssetValuations",
+      "property": "ValuationType",
+      "hasColorsOrCriticality": false,
+      "reason": "Valuation types such as TRANSFER, POST_CAPITALIZATION, WRITE_UP, MANUAL_DEPRECIATION, and REVERSAL are generally neutral as they represent different accounting actions without inherent positive or negative connotations.",
+      "mapping": []
+    }
+  ]
+}
+```
+2026-01-21T07:32:50.510Z [info] 2/8: Build CDS files
+2026-01-21T07:32:50.525Z [info] 3/8: Checking staging project root folder "&#x2F;home&#x2F;user&#x2F;projects&#x2F;AssetManagement"
+2026-01-21T07:32:56.443Z [info] 4/8: Generating mock data
+2026-01-21T07:33:00.858Z [info] 
+==========LLM call for data generation:==========
+
+For the following list of entities, create data for the empty CSV files.
+Entity "AssetMasters" - Properties:
+    AssetID: String, Unique identifier for Asset Master records.
+    CompanyCode: String(10), Mandatory field representing the company code.
+    AssetClass: String(50), Classification of the asset.
+    Description: String(100), Description of the asset.
+    CapitalizedOn: Date, Date when the asset was capitalized; nullable.
+
+Entity "DepreciationValues" - Properties:
+    AssetID: String, Association to AssetMasters entity.
+    DepreciationArea: String(50), Area of depreciation.
+    AcquisitionValue: Decimal, Value at acquisition.
+    OrdinaryDepreciation: Decimal, Ordinary depreciation value.
+    AssetMaster_AssetID: String, AssetID of associated AssetMasters
+
+Empty CSV files in json format (only generate content for these files!):
+{"AssetMasters.csv":"AssetID;CompanyCode;AssetClass;Description;CapitalizedOn","DepreciationValues.csv":"AssetID;DepreciationArea;AcquisitionValue;OrdinaryDepreciation;AssetMaster_AssetID"}
+
+Rules:
+    - Take over the given header line, do not invent new columns!
+    - For a given file, add rows, add '\n' characters before each row but don't break the JSON string
+    - Do not generate rows with same key values, they must be unique!
+    - Make sure that associations match, i.e. a field containing "Name of the associated Customer" must contain an existing Name of entity Customer
+    - Always use ";" as a delimiter in CSV files
+    - The result must be proper JSON format so it can be parsed, don't break JSON strings within, don't add quotes around values.
+    - Create about 5 rows for the first csv, 7 for the second and so on
+    - All values must be realistic with meaningful content, e.g. 'Laptop Screen' and not just placeholder values with incremented numbers like 'Product 1', 'Product 2' etc.
+
+Use format for values:
+  String(50): string no longer than 50 characters
+  Date: 2021-06-27
+  Decimal(3,2): 1.23
+
+
+Example output (Do NOT include in output!):
+```json
+{"Blogs":"blogID;title;description;createdDateTime;views\nBlog1;Tech Blog;A blog about the latest technology trends.;2023-06-27T14:52:23Z;1000\nBlog2;Fashion Blog;Explore the world of fashion and style.;2023-06-27T14:52:23Z;500","Posts":"postID;title;content;publishDate;likes;comments;blogID\n1;The Future of Artificial Intelligence;Artificial intelligence is shaping the future of technology.;2023-06-27;50;10;Blog1
+2;Summer Fashion Trends;Discover the hottest fashion trends for the summer season.;2023-06-27;100;20;Blog2\n3;Must-Have Accessories;10 must-have accessories for the upcoming season;2023-06-27;100;20;Blog2"}
+```
+Output ONLY the json contents for the csv files and try to be as accurate as possible.
+
+
+
+----------Response:----------
+```json
+{"AssetMasters.csv":"AssetID;CompanyCode;AssetClass;Description;CapitalizedOn\nAM001;COMP001;Office Equipment;Dell Latitude Laptop;2021-06-15\nAM002;COMP002;Machinery;CNC Milling Machine;2020-11-20\nAM003;COMP003;Furniture;Ergonomic Office Chair;2022-03-10\nAM004;COMP004;Vehicles;Toyota Corolla Sedan;2019-08-05\nAM005;COMP005;IT Equipment;Cisco Network Router;2021-01-25","DepreciationValues.csv":"AssetID;DepreciationArea;AcquisitionValue;OrdinaryDepreciation;AssetMaster_AssetID\nAM001;IT Equipment;1200.00;200.00;AM001\nAM002;Machinery;15000.00;1500.00;AM002\nAM003;Furniture;300.00;30.00;AM003\nAM004;Vehicles;20000.00;2500.00;AM004\nAM005;IT Equipment;800.00;100.00;AM005\nAM001;Office Equipment;1200.00;180.00;AM001\nAM003;Furniture;350.00;35.00;AM003"}
+```
+2026-01-21T07:33:00.860Z [info] 5/8: Initializing CAP project
+2026-01-21T07:33:01.262Z [info] 6/8: Copying files to CAP project
+2026-01-21T07:33:01.421Z [info] 7/8: Generating applications
+2026-01-21T07:33:19.417Z [info] 8/8: Installing node module dependencies
