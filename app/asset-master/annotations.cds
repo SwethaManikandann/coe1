@@ -12,7 +12,7 @@ annotate service.AssetMaster with @(
         { $Type : 'UI.DataField', Value : CompanyCode, Label : 'Company Code' },
         { $Type : 'UI.DataField', Value : AssetClass, Label : 'Asset Class' },
         { $Type : 'UI.DataField', Value : Description, Label : 'Description' },
-        { $Type : 'UI.DataField', Value : Status, Label : 'Status', Criticality: StatusCriticality }, // Need to define Criticality if used
+        { $Type : 'UI.DataField', Value : Status, Label : 'Status' }, // Need to define Criticality if used
         { $Type : 'UI.DataField', Value : CapitalizedOn, Label : 'Capitalized On' },
         { $Type : 'UI.DataField', Value : NetBookValue, Label : 'Net Book Value' } // Calculated or from assoc? NBV is in DepValues. need assoc.
     ],
