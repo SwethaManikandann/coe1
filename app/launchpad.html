@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asset Accounting Launchpad</title>
+
+    <script>
+        window["sap-ushell-config"] = {
+            defaultRenderer: "fiori2",
+            renderers: {
+                fiori2: {
+                    componentData: {
+                        config: {
+                            search: "hidden",
+                            enableSearch: false
+                        }
+                    }
+                }
+            },
+            services: {
+                LaunchPage: {
+                    adapter: {
+                        config: {
+                            groups: [{
+                                id: "asset_group",
+                                title: "Asset Accounting",
+                                tiles: [{
+                                    id: "tile_asset_master",
+                                    title: "Manage Assets",
+                                    subtitle: "Master Data",
+                                    icon: "sap-icon://money-bills",
+                                    target: { semanticObject: "Asset", action: "manage" }
+                                }, {
+                                    id: "tile_procurement",
+                                    title: "Procurement",
+                                    subtitle: "Purchase Orders",
+                                    icon: "sap-icon://cart",
+                                    target: { semanticObject: "Procurement", action: "manage" }
+                                }, {
+                                    id: "tile_valuation",
+                                    title: "Asset Valuation",
+                                    subtitle: "Postings",
+                                    icon: "sap-icon://accounting-document-verification",
+                                    target: { semanticObject: "Valuation", action: "manage" }
+                                }, {
+                                    id: "tile_retirement",
+                                    title: "Asset Retirement",
+                                    subtitle: "Scrap & Sell",
+                                    icon: "sap-icon://decline",
+                                    target: { semanticObject: "Retirement", action: "manage" }
+                                }, {
+                                    id: "tile_depreciation",
+                                    title: "Depreciation Run",
+                                    subtitle: "Periodic Processing",
+                                    icon: "sap-icon://calendar",
+                                    target: { semanticObject: "Depreciation", action: "run" }
+                                }]
+                            }]
+                        }
+                    }
+                },
+                ClientSideTargetResolution: {
+                    adapter: {
+                        config: {
+                            inbounds: {
+                                Asset_manage: {
+                                    semanticObject: "Asset",
+                                    action: "manage",
+                                    title: "Manage Assets",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        ui5ComponentName: "capgenapp",
+                                        url: "./capgenapp/webapp"
+                                    }
+                                },
+                                Procurement_manage: {
+                                    semanticObject: "Procurement",
+                                    action: "manage",
+                                    title: "Procurement",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        ui5ComponentName: "procurement",
+                                        url: "./procurement/webapp"
+                                    }
+                                },
+                                Valuation_manage: {
+                                    semanticObject: "Valuation",
+                                    action: "manage",
+                                    title: "Asset Valuation",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        ui5ComponentName: "valuation",
+                                        url: "./valuation/webapp"
+                                    }
+                                },
+                                Retirement_manage: {
+                                    semanticObject: "Retirement",
+                                    action: "manage",
+                                    title: "Asset Retirement",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        ui5ComponentName: "retirement",
+                                        url: "./retirement/webapp"
+                                    }
+                                },
+                                Depreciation_run: {
+                                    semanticObject: "Depreciation",
+                                    action: "run",
+                                    title: "Depreciation Run",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        ui5ComponentName: "depreciationrun",
+                                        url: "./depreciation-run/webapp"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <script src="https://sapui5.hana.ondemand.com/1.136.0/resources/sap-ushell-config.js"></script>
+    <script id="sap-ui-bootstrap" src="https://sapui5.hana.ondemand.com/1.136.0/resources/sap-ui-core.js"
+        data-sap-ui-theme="sap_horizon" data-sap-ui-libs="sap.m, sap.ushell, sap.fe.templates"
+        data-sap-ui-compatVersion="edge" data-sap-ui-frameOptions="allow"
+        data-sap-ui-onInit="module:sap/ushell/services/Container" data-sap-ui-resourceroots='{
+                "capgenapp": "./capgenapp/webapp",
+                "procurement": "./procurement/webapp",
+                "retirement": "./retirement/webapp",
+                "valuation": "./valuation/webapp",
+                "depreciationrun": "./depreciation-run/webapp"
+            }'>
+            </script>
+    <script>
+        sap.ui.getCore().attachInit(function () {
+            sap.ushell.Container.createRenderer().placeAt("content");
+        });
+    </script>
+</head>
+
+<body class="sapUiBody" id="content"></body>
+
+</html>
